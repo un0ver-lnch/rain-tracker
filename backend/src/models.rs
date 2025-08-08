@@ -1,12 +1,27 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+/// Rain measurement stored in the database
+#[derive(Serialize, Deserialize, FromRow, Clone, Debug)]
 pub struct RainRecord {
-    pub id: u64,
+    pub id: i64,
     pub amount_mm: f64,
 }
 
+/// Payload used to create or update a rain record
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RainRecordInput {
+    pub amount_mm: f64,
+}
+
+impl RainRecordInput {
+    pub fn with_id(self, id: i64) -> RainRecord {
+        RainRecord { id, amount_mm: self.amount_mm }
+    }
+}
+
+/// A piece of clothing used in a wear entry
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClothingItem {
     pub id: u32,
@@ -23,6 +38,7 @@ pub enum ClothingCategory {
     Accessory,
 }
 
+/// Snapshot of weather when the clothing entry was recorded
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WeatherSnapshot {
     pub timestamp: DateTime<Utc>,
@@ -39,48 +55,40 @@ pub enum ComfortLevel {
     Hot,
 }
 
+/// Complete wear entry returned by the API
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct WearEntry {
+    pub id: i64,
     pub clothing: Vec<ClothingItem>,
     pub weather: WeatherSnapshot,
     pub comfort: ComfortLevel,
     pub notes: Option<String>,
 }
 
-#[derive(Clone, Debug)]
-pub struct AppState {
-    pub records: Vec<RainRecord>,
-    pub wear_entries: Vec<WearEntry>,
+/// Payload used to create or update a wear entry
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct WearEntryInput {
+    pub clothing: Vec<ClothingItem>,
+    pub weather: WeatherSnapshot,
+    pub comfort: ComfortLevel,
+    pub notes: Option<String>,
 }
 
-impl Default for AppState {
-    fn default() -> Self {
-        let sample_entry = WearEntry {
-            clothing: vec![
-                ClothingItem {
-                    id: 1,
-                    name: "Camisa roja".to_string(),
-                    category: ClothingCategory::Top,
-                },
-                ClothingItem {
-                    id: 2,
-                    name: "Pantalón jean".to_string(),
-                    category: ClothingCategory::Bottom,
-                },
-            ],
-            weather: WeatherSnapshot {
-                timestamp: Utc::now(),
-                temperature_c: 22.0,
-                humidity_pct: 60,
-            },
-            comfort: ComfortLevel::Comfortable,
-            notes: Some("Se sintió muy bien".to_string()),
-        };
-
-        Self {
-            records: vec![],
-            wear_entries: vec![sample_entry],
+impl WearEntryInput {
+    pub fn with_id(self, id: i64) -> WearEntry {
+        WearEntry {
+            id,
+            clothing: self.clothing,
+            weather: self.weather,
+            comfort: self.comfort,
+            notes: self.notes,
         }
     }
+}
+
+/// Shared application state containing the database connection pool
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: sqlx::AnyPool,
 }
 
